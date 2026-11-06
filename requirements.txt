@@ -1,0 +1,20 @@
+# Core numerical computing and deep learning
+numpy>=2.0.0
+torch>=2.5.0
+
+# Tokenization, text preprocessing, and evaluation
+regex>=2024.11.6
+nltk>=3.9.1
+sacrebleu>=2.5.1
+
+# Configuration, progress reporting, and experiment logging
+PyYAML>=6.0.2
+tqdm>=4.66.5
+tensorboard>=2.18.0
+
+# Attention visualization and plots
+matplotlib>=3.9.2
+seaborn>=0.13.2
+
+# Development and testing
+pytest>=8.3.3

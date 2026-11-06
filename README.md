@@ -1,4 +1,5 @@
 # neural-machine-translation-project
+
 Implementation of seq2seq attention (LSTM) and Transformers from scratch to translate from English to Vietnamese.
 
 ```
@@ -41,4 +42,19 @@ neural-machine-translation-project/
 ├── requirements.txt          # Các thư viện phụ thuộc (torch, nltk, matplotlib, pyyaml, transformers, etc.)
 ├── README.md                 # Tài liệu hướng dẫn sử dụng repo
 └── .gitignore
+```
+
+## Cài đặt thư viện
+
+Trên máy không có GPU NVIDIA, chạy script sau để cài bản PyTorch CPU và các thư viện còn lại:
+
+```bash
+chmod +x install_cpu.sh
+./install_cpu.sh
+```
+
+Nếu máy có GPU, chỉ cần chạy
+
+```bash
+pip install -r requirements.txt
 ```
