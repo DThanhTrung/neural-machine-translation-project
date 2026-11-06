@@ -1,7 +1,7 @@
 # neural-machine-translation-project
 Implementation of seq2seq attention (LSTM) and Transformers from scratch to translate from English to Vietnamese.
 
-
+```
 neural-machine-translation-project/
 ├── configs/                  # File cấu hình tham số (hyperparameters)
 │   ├── lstm_config.yaml
@@ -41,3 +41,4 @@ neural-machine-translation-project/
 ├── requirements.txt          # Các thư viện phụ thuộc (torch, nltk, matplotlib, pyyaml, transformers, etc.)
 ├── README.md                 # Tài liệu hướng dẫn sử dụng repo
 └── .gitignore
+```
