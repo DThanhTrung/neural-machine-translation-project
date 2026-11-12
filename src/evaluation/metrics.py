@@ -1,98 +1,102 @@
 from pathlib import Path
 from collections import Counter
-from collections.abc import Iterable
 from math import exp, log
 
-class CorpusBLEU:
-    def __init__(
-        self, 
-        max_order: int = 4,
-        smoothing_eps: float = 1e-10
-    ) -> None:
-        if not isinstance(max_order, int) or max_order <= 0:
-            raise ValueError("max_order phải là số nguyên dương!")
 
-        self.max_order = max_order
-        self.smoothing_eps = smoothing_eps
+def _get_ngrams(
+    tokens: list[str], 
+    order: int
+) -> Counter:
+    return Counter(
+        tuple(tokens[idx : (idx + order)])
+        for idx in range(len(tokens) - order + 1)
+    )
 
 
-    @staticmethod
-    def _get_ngrams(tokens: list[str], order: int) -> Counter:
-        return Counter(
-            tuple(tokens[index : (index + order)])
-            for index in range(len(tokens) - order + 1)
-        )
+def _calculate_precision(
+    prediction: list[str],
+    reference: list[str],
+    order: int,
+) -> tuple[int, int] :
+    prediction_counts = _get_ngrams(prediction, order)
+    reference_counts = _get_ngrams(reference, order)
+
+    numerator = sum(
+        min(count, reference_counts[ngram])
+        for ngram, count in prediction_counts.items()
+    )
+    denominator = sum(prediction_counts.values())
+
+    return numerator, denominator
 
 
-    @classmethod
-    def _calculate_precision(
-        cls,
-        prediction: str,
-        reference: str,
-        order: int,
-    ) -> tuple[int, int]:
-        prediction_tokens = prediction.lower().split()
-        reference_tokens = reference.lower().split()
+def _calculate_corpus_level_bleu(
+    predictions: list[list[str]],
+    references: list[list[str]],
+    max_order: int = 4,
+    smoothing_eps: float = 1e-10,
+) -> float :
+    predictions = list(predictions)
+    references = list(references)
 
-        prediction_counts = cls._get_ngrams(prediction_tokens, order)
-        reference_counts = cls._get_ngrams(reference_tokens, order)
+    if len(predictions) != len(references):
+        raise ValueError("Số câu dự đoán phải khớp với số câu tham chiếu!")
 
-        numerator = sum(
-            min(count, reference_counts[ngram])
-            for ngram, count in prediction_counts.items()
-        )
-        denominator = sum(prediction_counts.values())
+    if not predictions:
+        return 0.0
 
-        return numerator, denominator
+    log_precision_sum = 0.0
+    for order in range(1, max_order + 1):
+        numerator = denominator = 0
 
-
-    def calculate(
-        self,
-        predictions: Iterable[str],
-        references: Iterable[str],
-    ) -> float:
-        predictions = list(predictions)
-        references = list(references)
-
-        if len(predictions) != len(references):
-            raise ValueError("Số câu dự đoán phải khớp với số câu tham chiếu!")
-
-        if not predictions:
-            return 0.0
-
-
-        log_precision_sum = 0.0
-        for order in range(1, self.max_order + 1):
-            numerator = denominator = 0
-
-            for prediction, reference in zip(predictions, references):
-                matched, total = self._calculate_precision(
-                    prediction, reference, order
-                )
-
-                numerator += matched
-                denominator += total
-
-            log_precision_sum += log(
-                numerator / denominator if min(numerator, denominator) > 0
-                else self.smoothing_eps
+        for prediction, reference in zip(predictions, references):
+            matched, total = _calculate_precision(
+                prediction, reference, order
             )
 
-        prediction_length = sum(
-            len(prediction.split()) for prediction in predictions
+            numerator += matched
+            denominator += total
+
+        log_precision_sum += log(
+            numerator / denominator if min(numerator, denominator) > 0
+            else smoothing_eps
         )
 
-        reference_length = sum(
-            len(reference.split()) for reference in references
-        )
+    prediction_length = sum(
+        len(prediction) for prediction in predictions
+    )
 
-        if prediction_length == 0:
-            return 0.0
+    reference_length = sum(
+        len(reference) for reference in references
+    )
 
-        brevity_penalty = (
-            1.0
-            if prediction_length > reference_length
-            else exp(1 - reference_length / prediction_length)
-        )
+    if prediction_length == 0:
+        return 0.0
 
-        return brevity_penalty * exp(log_precision_sum / self.max_order)
+    brevity_penalty = (
+        1.0
+        if prediction_length > reference_length
+        else exp(1 - reference_length / prediction_length)
+    )
+
+    return brevity_penalty * exp(log_precision_sum / max_order)
+
+
+def calculate_bleu(
+    predictions: list[list[str]],
+    references: list[list[str]],
+    max_order: int = 4,
+    smoothing_eps: float = 1e-10,
+) -> float :
+    if not isinstance(max_order, int) or max_order <= 0:
+        raise ValueError("max_order phải là số nguyên dương!")
+    if smoothing_eps <= 0:
+        raise ValueError("smoothing_eps phải lớn hơn 0!")
+
+    return _calculate_corpus_level_bleu(
+        predictions=predictions,
+        references=references,
+        max_order=max_order,
+        smoothing_eps=smoothing_eps
+    )
+
