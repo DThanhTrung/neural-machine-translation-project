@@ -16,5 +16,8 @@ tensorboard>=2.18.0
 matplotlib>=3.9.2
 seaborn>=0.13.2
 
+# Model saving
+safetensors>=0.8.0
+
 # Development and testing
 pytest>=8.3.3

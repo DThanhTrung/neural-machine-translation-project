@@ -14,7 +14,7 @@ def evaluate_bleu_score(model, dataloader, tokenizer, device):
             tgt = tgt.to(device)
 
             # sinh câu dự đoán
-            pred_ids = model.generate(src) # Giả định mô hình có hàm generate
+            pred_ids, attn_matrix = model.generate(src) # Giả định mô hình có hàm generate
 
             # decode từ ID sang text và split theo dấu cách
             for pred_ids, tgt_ids in zip(pred_ids, tgt):

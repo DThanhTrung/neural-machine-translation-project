@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import os
 
 NUM_EPOCHS = 10
 BATCH_SIZE = 64
@@ -15,8 +16,6 @@ HIDDEN_DIM = 512
 
 
 def main() :
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     # Thiết lập thiết bị
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Đang sử dụng thiết bị: {device}")
@@ -31,7 +30,7 @@ def main() :
     # TODO
     train_loader, validation_loader, test_loader = None, None, None
 
-    print("Đã tải dữ liệu và tokenizer xong")
+    print("Đã tải dữ liệu huấn luyện, kiểm định và tokenizer xong")
     print("=" * 50)
 
     # các thông số (giả sử)
@@ -96,6 +95,22 @@ def main() :
 
             train_bleus.append(train_bleu)
             val_bleus.append(val_bleu)
+
+            checkpoint_filename = os.path.join('checkpoints', f'model_epoch_{str(epoch).zfill(3)}.pt')
+            trainer.save_checkpoint(
+                checkpoint_filename=checkpoint_filename,
+                cur_epoch=epoch,
+                train_loss=train_loss,
+                val_loss=val_loss,
+                train_bleu=train_bleu,
+                val_bleu=val_bleu
+            )            
+
+
+    model_name : str = 'model.safetensors'
+    trainer.save_model_safetensors(
+        os.path.join('model_weights', model_name)
+    )
 
 
 if __name__ == "__main__" :

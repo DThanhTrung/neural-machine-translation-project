@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+import os
+from safetensors.tensorflow import save_file, load_file
 
 class Trainer :
     def __init__(
@@ -89,3 +91,90 @@ class Trainer :
 
 
         return total_loss / len(dataloader)
+
+
+    def save_checkpoint(
+        self,
+        checkpoint_filename: str,
+        cur_epoch: int,
+        train_loss: float,
+        val_loss: float,
+        train_bleu: float,
+        val_bleu: float
+    ) :
+        """
+        Lưu lại checkpoint khi huấn luyện, 
+        tách biệt thành safetensors, optimizer state và metadata đi kèm
+        """
+
+        os.makedirs(os.path.dirname(checkpoint_filename), exist_ok=True)
+
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+
+            'optimizer_state_dict': self.optimizer.state_dict(),
+
+            'cur_epoch': cur_epoch,
+
+            'train_loss': train_loss,
+            'val_loss': val_loss,
+
+            'train_bleu': train_bleu,
+            'val_bleu': val_bleu
+        }, checkpoint_filename)
+
+
+    @classmethod
+    def load_checkpoint(
+        cls,
+        checkpoint_filename: str
+    ) :
+        # TODO
+        raise NotImplementedError("You must implement load_checkpoint method")
+
+
+    def save_model_safetensors(
+        self, 
+        save_path: str
+    ) :
+        """
+        Save model weights and architecture configuration as safetensors.
+        """
+
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+        # Lấy state_dict của mô hình
+        state_dict = self.model.state_dict()
+
+        # Đảm bảo tất cả tensor đều nằm trên CPU và ở dạng contiguous (bắt buộc đối với safetensors)
+        cpu_state_dict = {
+            k: v.cpu().contiguous() 
+            for k, v in state_dict.items()
+        }
+
+        # Lưu file
+        save_file(
+            tensors=cpu_state_dict, 
+            filename=save_path
+        )
+
+        print(f"Đã lưu mô hình an toàn bằng safetensors tại: {save_path}")
+
+
+    @classmethod
+    def load_model_safetensors(
+        cls,
+        model, 
+        load_path, 
+        device
+    ) :
+        # Load state_dict từ file safetensors
+        state_dict = load_file(load_path)
+
+        # Đưa vào mô hình
+        model.load_state_dict(state_dict)
+        model.to(device)
+        model.eval()
+
+        print(f"Đã nạp trọng số thành công từ: {load_path}")
+        return model
