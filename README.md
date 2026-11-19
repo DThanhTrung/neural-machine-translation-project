@@ -3,9 +3,10 @@
 Implementation of seq2seq attention (LSTM) and Transformers from scratch to translate from English to Vietnamese.
 
 Cấu trúc tổng thể dự kiến của dự án được mô tả dưới đây. Nhánh
-`huy-dataset-loader` đã triển khai pipeline loader trong `src/data/`, script
-preview và kiểm thử; tokenizer thật, cấu hình và các mô hình là phần tích hợp
-tiếp theo của nhóm, chưa có đầy đủ trên nhánh này.
+`huy-dataset-loader` đã triển khai tokenizer whitespace, xây/lưu/tải vocabulary,
+pipeline loader trong `src/data/`, script chạy thử và kiểm thử. Chuẩn hóa dữ
+liệu do phần tiền xử lý của nhóm cung cấp; cấu hình và các mô hình chưa có
+đầy đủ trên nhánh này.
 
 ```
 neural-machine-translation-project/
@@ -20,7 +21,11 @@ neural-machine-translation-project/
 │   ├── __init__.py
 │   ├── data/                 # Xử lý dữ liệu & Tokenizer
 │   │   ├── __init__.py
-│   │   ├── tokenizer.py      # Dự kiến: tokenizer thật do phần tokenizer cung cấp
+│   │   ├── tokenizer.py      # WordTokenizer: tokenize, encode, decode
+│   │   ├── vocabulary.py     # Mapping token <-> ID và special token
+│   │   ├── vocabulary_builder.py # Xây vocab từ hai file train, min_freq=2
+│   │   ├── tokenizer_storage.py # Lưu/tải mapping bằng JSON
+│   │   ├── tokenizer_export.py # Xuất kết quả encode/decode ra JSONL
 │   │   ├── tokenizer_protocol.py # Giao diện tokenizer để loader sử dụng
 │   │   ├── validation.py     # Kiểm tra vocabulary, special token và ID
 │   │   ├── readers.py        # Đọc và kiểm tra cặp câu Anh–Việt
@@ -48,11 +53,17 @@ neural-machine-translation-project/
 │       └── visualization.py  # Vẽ ma trận attention so sánh giữa 2 mô hình
 ├── scripts/                  # Script chạy thực thi
 │   ├── __init__.py
+│   ├── build_tokenizers.py   # CLI xây tokenizer từ hai đường dẫn train
+│   ├── export_tokenizer.py   # CLI xuất ID/câu decode ra file
 │   ├── preview_data.py       # Chạy thử loader và embedding trên dữ liệu thật
 │   ├── train.py              # Huấn luyện mô hình
 │   └── inference.py          # Dịch câu và xuất ma trận attention
 ├── tests/                    # Unit tests cho các module
-│   └── test_dataset.py        # Kiểm thử reader, dataset và batch loader
+│   ├── test_dataset.py        # Kiểm thử reader, dataset và batch loader
+│   ├── test_tokenizer.py      # Kiểm thử tokenizer, JSON và tích hợp loader
+│   └── test_tokenizer_export.py # Kiểm thử xuất file encode/decode
+├── artifacts/tokenizers/      # JSON sinh cục bộ, được gitignore
+├── artifacts/outputs/         # Kết quả encode/decode JSONL, được gitignore
 ├── INTERFACES.md              # Hợp đồng tích hợp tokenizer, model và metrics
 ├── requirements.txt          # Các thư viện phụ thuộc (torch, nltk, matplotlib, pyyaml, transformers, etc.)
 ├── README.md                 # Tài liệu hướng dẫn sử dụng repo
@@ -73,6 +84,115 @@ Nếu máy có GPU, chỉ cần chạy
 ```bash
 pip install -r requirements.txt
 ```
+
+## Tokenizer và vocabulary (giai đoạn 1)
+
+`WordTokenizer` dùng `text.split()`: không lowercase, không tự tách dấu câu,
+không dùng BPE. Với tiếng Việt, đây là mức âm tiết theo khoảng trắng. Phần
+tiền xử lý của Vũ cần đưa dữ liệu về cùng chuẩn, ví dụ `hello , world` để dấu
+phẩy là một token; câu mới khi inference cũng cần qua cùng chuẩn hóa.
+
+| Module | Thành phần | Trách nhiệm |
+| --- | --- | --- |
+| `src/data/vocabulary.py` | `Vocabulary` | Mapping hai chiều cố định, ID liên tiếp và special token |
+| `src/data/vocabulary_builder.py` | `VocabularyBuilder`, `build_tokenizers` | Đếm token từ train, lọc tần suất và xây hai vocab riêng |
+| `src/data/tokenizer.py` | `WordTokenizer` | Tách token, encode ID, decode token/câu |
+| `src/data/tokenizer_storage.py` | `TokenizerStorage` | Save/load mapping và cấu hình bằng JSON UTF-8 |
+| `src/data/tokenizer_export.py` | `TokenizerFileExporter` | Xuất kết quả chuyển đổi từng câu ra JSONL |
+
+`build_tokenizers(en_path, vi_path, min_freq=2)` kiểm tra hai file train đúng
+alignment, bỏ cả cặp trống rồi đếm tần suất riêng cho mỗi ngôn ngữ. Chỉ giữ
+token xuất hiện từ 2 lần. ID thông thường được sắp theo tần suất giảm dần,
+hòa thì theo thứ tự Unicode; sau đó append `<pad>`, `<s>`, `</s>`, `<unk>`,
+`<mask>` theo đúng thứ tự. Không đưa các chuỗi special token nguyên văn vào
+corpus nội dung, vì chúng được dành riêng cho pipeline.
+
+CLI nhận **hai đường dẫn train**. Ví dụ chạy bằng dữ liệu đang có trong repo:
+
+```bash
+python -m scripts.build_tokenizers --en-path data/raw/train-en-vi/train.en --vi-path data/raw/train-en-vi/train.vi --min-freq 2
+```
+
+Khi dữ liệu đã chuẩn hóa của Vũ sẵn sàng, thay hai đường dẫn trên bằng file
+Anh/Việt thuộc **train** trong `data/processed/`; không lấy dev/test để fit.
+Đường dẫn cụ thể theo cấu trúc Vũ bàn giao. Không ghi đè mapping dùng với
+checkpoint cũ bằng vocabulary xây lại, vì các hàng embedding phụ thuộc ID.
+
+Mặc định tạo `artifacts/tokenizers/source.json` và `target.json` (thay đổi bằng
+`--output-dir`). Đây là file sinh được nên đã gitignore. Mỗi JSON chứa
+`format_version`, `tokenization`, `min_freq`, `id_to_token`. Vị trí trong danh
+sách chính là ID; load khôi phục đúng thứ tự mà không fit hoặc sắp xếp lại.
+`min_freq=null` chỉ dành cho vocabulary được khởi tạo thủ công; CLI xây từ
+train lưu ngưỡng thực tế. Model/checkpoint cần đi kèm đúng hai JSON đã dùng.
+
+```python
+from src.data import TokenizerStorage, build_tokenizers
+
+# Fit một lần từ train:
+source_tokenizer, target_tokenizer = build_tokenizers(en_path, vi_path, min_freq=2)
+TokenizerStorage.save(source_tokenizer, "artifacts/tokenizers/source.json")
+TokenizerStorage.save(target_tokenizer, "artifacts/tokenizers/target.json")
+
+# Những lần chạy sau, bao gồm dev/test/inference, chỉ load:
+source_tokenizer = TokenizerStorage.load("artifacts/tokenizers/source.json")
+target_tokenizer = TokenizerStorage.load("artifacts/tokenizers/target.json")
+
+source_ids = source_tokenizer.encode("I love learning .")
+# Sau khi model sinh pred_ids tiếng Việt:
+# predicted_text = target_tokenizer.decode(pred_ids)
+# predicted_tokens = target_tokenizer.decode_tokens(pred_ids)
+```
+
+`encode(text)` trả `list[int]` nội dung, từ OOV thành `unk_id`; không chèn
+BOS/EOS/PAD. `decode_tokens(ids)` trả `list[str]`, bỏ BOS/PAD/MASK, dừng tại
+EOS và giữ `<unk>`. `decode(ids)` nối chúng thành chuỗi bằng một dấu cách.
+Chấp nhận một dãy ID hoặc tensor 1D CPU/GPU, không nhận cả batch; duyệt từng
+hàng khi decode batch. ID không hợp lệ trước EOS sẽ báo lỗi. Decode không
+khôi phục được từ OOV ban đầu hoặc khoảng trắng nguyên bản.
+
+### Xuất kết quả encode/decode ra file
+
+Hai JSON trong `artifacts/tokenizers/` lưu **mapping**. Để lưu **kết quả chuyển
+đổi từng câu**, dùng `TokenizerFileExporter` hoặc CLI sau (chạy sau khi build
+tokenizer):
+
+```bash
+python -m scripts.export_tokenizer encode --tokenizer artifacts/tokenizers/source.json --input data/raw/dev-2012-en-vi/tst2012.en --output artifacts/outputs/dev.en.encoded.jsonl
+python -m scripts.export_tokenizer decode --tokenizer artifacts/tokenizers/source.json --input artifacts/outputs/dev.en.encoded.jsonl --output artifacts/outputs/dev.en.decoded.jsonl
+python -m scripts.export_tokenizer encode --tokenizer artifacts/tokenizers/target.json --input data/raw/dev-2012-en-vi/tst2012.vi --output artifacts/outputs/dev.vi.encoded.jsonl
+python -m scripts.export_tokenizer decode --tokenizer artifacts/tokenizers/target.json --input artifacts/outputs/dev.vi.encoded.jsonl --output artifacts/outputs/dev.vi.decoded.jsonl
+```
+
+JSONL là UTF-8, mỗi dòng là một object JSON độc lập:
+
+```json
+{"text": "I learn .", "ids": [10, 20, 30]}
+```
+
+File decoded có schema `{"ids": [...], "text": "..."}`. ID trong ví dụ là
+minh họa; kết quả thực tế theo mapping đã load. Decode cũng nhận file dự đoán
+của model nếu mỗi dòng chứa `{"ids": [...]}`. Phải dùng đúng tokenizer đã
+encode/sinh ID; decode không dịch ngôn ngữ.
+
+```python
+from src.data import TokenizerFileExporter, TokenizerStorage
+
+tokenizer = TokenizerStorage.load("artifacts/tokenizers/source.json")
+exporter = TokenizerFileExporter(tokenizer)
+count = exporter.encode_file("sentences.txt", "artifacts/outputs/encoded.jsonl")
+exporter.decode_file("artifacts/outputs/encoded.jsonl", "artifacts/outputs/decoded.jsonl")
+```
+
+File encode giữ nguyên số/thứ tự dòng, kể cả câu trống (ID `[]`), để không lệch
+alignment. Khác với reader huấn luyện, exporter không tự loại cặp trống.
+`encode()`/`decode()` gốc vẫn chỉ chuyển đổi trong bộ nhớ; chức năng ghi file
+nằm ở module riêng để loader không ghi file mỗi lần lấy mẫu.
+
+Đầu ra đã tồn tại cần `--overwrite` (API: `overwrite=True`); input và output
+không được cùng đường dẫn. Nếu lỗi JSON/ID hoặc encode ở một dòng, thông báo
+có số dòng và output cũ được giữ nguyên. Output mới chỉ được thay vào khi
+toàn bộ thao tác thành công. Các file sinh trong `artifacts/outputs/` không
+được tự đưa lên Git.
 
 ## Dataset loader
 
@@ -121,10 +241,9 @@ dòng của file vocabulary trước khi append special token. Nếu tokenizer c
 `__len__`, `len(tokenizer)` phải bằng `vocab_size`. Loader kiểm tra ID nằm
 trong phạm vi này và không cho phép `encode()` chèn PAD/BOS/EOS.
 
-Vocabulary chỉ được xây từ train (ngưỡng tần suất nhóm yêu cầu: `min_freq=2`),
-sau đó tái sử dụng nguyên trạng cho validation/test. Tokenizer chịu trách nhiệm
-lưu/tải mapping và append special token, bao gồm `<mask>`, sau vocabulary thông
-thường theo quy ước của nhóm. Loader không xây vocabulary, không chèn `<mask>`
+Vocabulary được xây riêng bằng `build_tokenizers()` từ train (`min_freq=2`),
+sau đó tái sử dụng nguyên trạng cho validation/test. `TokenizerStorage` phụ
+trách lưu/tải mapping. Loader không tự xây vocabulary, không chèn `<mask>`
 vào câu và không thay đổi ID đã lưu.
 
 ### Sử dụng với tokenizer của nhóm
@@ -205,13 +324,15 @@ Chế độ mặc định không đổi: `(src, tgt)`. Xem [INTERFACES.md](INTER
 Chạy từ thư mục gốc repo, trong môi trường đã cài PyTorch:
 
 ```bash
+python -m scripts.build_tokenizers --en-path data/raw/train-en-vi/train.en --vi-path data/raw/train-en-vi/train.vi
 python -m scripts.preview_data --batch-size 4
 python -m scripts.preview_data --batch-size 4 --return-tokens
 python -m unittest discover -s tests -v
 ```
 
-Script preview dùng adapter đơn giản với hai file vocabulary có sẵn để kiểm tra
-luồng đọc/encode/padding trên dữ liệu thật. Đây không phải tokenizer huấn luyện
-cuối cùng và không chứng minh vocabulary cũ đáp ứng `min_freq=2`. Adapter giữ
-mapping cũ và chỉ append các special token còn thiếu trong bộ nhớ, không ghi
-đè file vocabulary.
+Script preview load hai JSON tokenizer thật, không dùng adapter vocabulary cũ
+và không tự fit lại. Chọn vị trí JSON bằng `--tokenizer-dir`. Mặc định preview
+train raw hiện có; để xem dữ liệu khác, truyền cả `--source-path` và
+`--target-path`. Preview in thống kê, batch, encode/decode và thử embedding.
+Việc chạy thử bằng train raw xác nhận pipeline kỹ thuật; vocab huấn luyện cuối
+cùng cần xây từ train đã được Vũ chuẩn hóa.

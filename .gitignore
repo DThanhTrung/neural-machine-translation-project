@@ -208,6 +208,8 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 .uv-cache/
+/artifacts/tokenizers/
+/artifacts/outputs/
 
 # PyPI configuration file
 .pypirc
