@@ -29,7 +29,7 @@ class Trainer :
         self.model.train()
         total_loss = 0.
 
-        for src, tgt in tqdm(dataloader, desc="Đang huấn luyện") :
+        for src, tgt in dataloader :
             src = src.to(self.device)
             tgt = tgt.to(self.device)
 
@@ -68,7 +68,7 @@ class Trainer :
         total_loss = 0
 
         with torch.no_grad():
-            for src, tgt in tqdm(dataloader, desc="Đang đánh giá") :
+            for src, tgt in dataloader :
                 src = src.to(self.device)
                 tgt = tgt.to(self.device)
 

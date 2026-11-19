@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 import os
+import tqdm
 
 NUM_EPOCHS = 10
 BATCH_SIZE = 64
@@ -64,7 +65,7 @@ def main() :
     train_bleus = []
     val_bleus = []
 
-    for epoch in range (NUM_EPOCHS) :
+    for epoch in tqdm.tnrange(NUM_EPOCHS, desc='Đang huấn luyện') :
         model.train()
 
         train_loss = trainer.train_one_epoch(
