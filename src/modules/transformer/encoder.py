@@ -29,7 +29,6 @@ class Encoder(nn.Module):
             ffn_hidden_dim: Số chiều ẩn của FFN.
             num_layers: Số encoder layer.
             dropout_p: Xác suất dropout.
-            src_masked: Mask padding source mặc định.
         """
         super().__init__()
         self.layers = nn.ModuleList(

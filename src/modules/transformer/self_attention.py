@@ -60,4 +60,42 @@ class SelfAttention(nn.Module):
             value_vectors: Các vector value, thường giống query và key.
             padding_mask: Mask padding dùng riêng cho batch hiện tại.
         """
-        raise NotImplementedError
+        Q = query_vectors @ self.Wq + self.bq
+        K = key_vectors @ self.Wk + self.bk
+        V = value_vectors @ self.Wv + self.bv
+
+        scores = Q @ K.transpose(-2, -1)
+        scores = scores / (self.hidden_dim ** 0.5)
+
+        if padding_mask is not None :
+            if 2 == padding_mask.ndim :
+                padding_mask = padding_mask[:, None , :]
+
+            scores = scores.masked_fill(
+                padding_mask.bool(),
+                torch.finfo(scores.dtype).min
+            )
+
+        if self.causal_masked :
+            query_length = Q.size(-2)
+            key_length = K.size(-2)
+
+            causal_mask = torch.triu(
+                torch.ones(
+                    query_length,
+                    key_length,
+                    device=scores.device,
+                    dtype=torch.bool,
+                ),
+                diagonal=1,
+            )
+
+            scores = scores.masked_fill(causal_mask, torch.finfo(scores.dtype).min)
+
+
+        attn_weights = torch.softmax(
+            scores,
+            dim=-1
+        )
+
+        return attn_weights @ V

@@ -27,7 +27,16 @@ class FFN(nn.Module):
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
 
-        self.activation = activation
+        if 'relu' == activation :
+            self.activation = nn.ReLU()
+        elif 'gelu' == activation :
+            self.activation = nn.GELU()
+        elif 'silu' == activation :
+            self.activation = nn.SiLU()
+        else:
+            raise ValueError(f"Unsupported activation: {activation}")
+
+
         self.dropout = nn.Dropout(dropout_p)
 
         self.weight_up = nn.Parameter(torch.empty(input_dim, hidden_dim))
@@ -42,4 +51,11 @@ class FFN(nn.Module):
 
     def forward(self, vectors: Tensor) -> Tensor:
         """Chiếu vector lên hidden_dim rồi chiếu về input_dim."""
-        raise NotImplementedError
+
+        x = vectors @ self.weight_up + self.bias_up
+        x = self.dropout(self.activation(x))
+
+        x = x @ self.weight_down + self.bias_down
+        x = self.dropout(x)
+
+        return x

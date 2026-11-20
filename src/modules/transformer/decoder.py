@@ -30,7 +30,6 @@ class Decoder(nn.Module):
             ffn_hidden_dim: Số chiều ẩn của FFN.
             num_layers: Số decoder layer.
             dropout_p: Xác suất dropout.
-            tgt_masked: Mask padding target mặc định.
         """
         super().__init__()
         self.layers = nn.ModuleList(
