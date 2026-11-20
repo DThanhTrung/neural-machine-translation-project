@@ -55,7 +55,7 @@ def main() :
         optimizer=optimizer,
         criterion=criterion,
         device=device,
-        clip_grad=1.0
+        clip_grad_norm=1.0
     )
 
     print("Bắt đầu huấn luyện")

@@ -25,9 +25,7 @@ class Transformers(nn.Module):
         num_layers: int,
         dropout_p: float,
         tgt_vocab_size: int,
-        max_len: int,
-        src_masked: Optional[Tensor] = None,
-        tgt_masked: Optional[Tensor] = None,
+        max_len: int
     ) -> None:
         """Khởi tạo toàn bộ module và projection ra vocabulary target.
 
@@ -39,8 +37,6 @@ class Transformers(nn.Module):
             dropout_p: Xác suất dropout của các layer.
             tgt_vocab_size: Kích thước vocabulary target.
             max_len: Độ dài câu lớn nhất cho positional encoding.
-            src_masked: Mask padding source mặc định.
-            tgt_masked: Mask padding target mặc định.
         """
         super().__init__()
         self.input_dim = input_dim

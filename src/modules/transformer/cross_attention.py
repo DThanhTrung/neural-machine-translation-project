@@ -58,4 +58,25 @@ class CrossAttention(nn.Module):
             value_vectors: Vector encoder dùng để tạo value.
             padding_mask: Mask padding source của batch hiện tại.
         """
-        raise NotImplementedError
+        Q = query_vectors @ self.Wq + self.bq
+        K = key_vectors @ self.Wk + self.bk
+        V = value_vectors @ self.Wv + self.bv
+
+        scores = Q @ K.transpose(-2, -1)
+        scores = scores / (self.hidden_dim ** 0.5)
+
+        if padding_mask is not None :
+            if 2 == padding_mask.ndim :
+                padding_mask = padding_mask[:, None , :]
+
+            scores = scores.masked_fill(
+                padding_mask.bool(),
+                torch.finfo(scores.dtype).min
+            )
+
+        attn_weights = torch.softmax(
+            scores,
+            dim=-1
+        )
+
+        return attn_weights @ V
