@@ -13,6 +13,9 @@ neural-machine-translation-project/
 │   └── processed/            # Dữ liệu đã tokenize, lưu dạng tensor/pickle
 ├── src/                      # Mã nguồn chính
 │   ├── __init__.py
+│   ├── preprocessing/        # Tiền xử lý dữ liệu
+│   │   ├── __init__.py
+│   │   └── normalize_data.py # Chuẩn hóa song ngữ anh - việt và cấu trúc câu
 │   ├── data/                 # Xử lý dữ liệu & Tokenizer
 │   │   ├── __init__.py
 │   │   ├── tokenizer.py      # Quản lý từ vựng, padding, mapping ID <-> token
